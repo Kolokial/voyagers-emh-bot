@@ -1,0 +1,46 @@
+name: Start scanning
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+
+jobs:
+  start-conversation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checking
+        uses: actions/checkout@v2
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8 #install the python needed
+      - name: Install dependencies
+        run: |
+          python -m pip install praw
+      - name: Run Python Script
+        env:
+          MONGODB_CONNECTION_STRING: ${{secrets.MONGODB_CONNECTION_STRING}}
+          REDDIT_PASSWORD: ${{secrets.REDDIT_PASSWORD}}
+          CLIENT_ID: ${{secrets.CLIENT_ID}}
+          CLIENT_SECRET: ${{secrets.CLIENT_SECRET}}
+        run: |
+          python ./startConversation.py
+  looking-for-quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checking
+        uses: actions/checkout@v2
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8 #install the python needed
+      - name: Install dependencies
+        run: |
+          python -m pip install praw
+      - name: Run Python Script
+        env:
+          MONGODB_CONNECTION_STRING: ${{secrets.MONGODB_CONNECTION_STRING}}
+          REDDIT_PASSWORD: ${{secrets.REDDIT_PASSWORD}}
+          CLIENT_ID: ${{secrets.CLIENT_ID}}
+          CLIENT_SECRET: ${{secrets.CLIENT_SECRET}}
+        run: |
+          python ./lookForMoreQuotes.py
