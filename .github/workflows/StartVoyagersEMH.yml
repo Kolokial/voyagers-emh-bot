@@ -6,6 +6,7 @@ on:
 
 jobs:
   start-conversation:
+    name: Start Conversation
     runs-on: ubuntu-latest
     steps:
       - name: Checking
@@ -27,6 +28,7 @@ jobs:
         run: |
           python ./startConversation.py
   looking-for-quotes:
+    name: Looking for qoutes
     runs-on: ubuntu-latest
     steps:
       - name: Checking
