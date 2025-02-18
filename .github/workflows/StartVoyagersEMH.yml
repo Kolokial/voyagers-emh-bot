@@ -1,4 +1,4 @@
-name: Start scanning
+name: Activate the EMH
 on:
   workflow_dispatch:
   schedule:
@@ -9,7 +9,7 @@ jobs:
     name: Start Conversation
     runs-on: ubuntu-latest
     steps:
-      - name: Checking
+      - name: Check out
         uses: actions/checkout@v2
       - name: Install Python
         uses: actions/setup-python@v2
@@ -31,7 +31,7 @@ jobs:
     name: Looking for qoutes
     runs-on: ubuntu-latest
     steps:
-      - name: Checking
+      - name: Check out
         uses: actions/checkout@v2
       - name: Install Python
         uses: actions/setup-python@v2

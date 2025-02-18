@@ -21,9 +21,9 @@ for submission in startreksub.hot(limit=100):
     # print("Id:", submission.id)
     # print("Text: ", submission.selftext)
     # print("Score: ", submission.score)
-    # print("Comments:", post.comments.__len__())
+    # print("Comments:", post.num_comments)
     post.comments.replace_more(limit=None, threshold=0)
-    if post.comments.__len__() == 0:
+    if post.num_comments == 0:
         continue
 
     lookForMoreQuotesRequest(post.comments)

@@ -3,6 +3,9 @@ from pymongo.server_api import ServerApi
 import pymongo
 import sys
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 uri = os.getenv('MONGODB_CONNECTION_STRING')
 

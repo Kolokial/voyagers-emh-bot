@@ -4,6 +4,9 @@ import praw
 import re
 import json
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 redditUserName = "VoyagersEMH"
 doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor')
