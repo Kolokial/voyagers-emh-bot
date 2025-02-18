@@ -9,17 +9,18 @@ jobs:
     name: Start Conversation
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
+      - name: 🔧 I'm a doctor, not an engineer.
         uses: actions/checkout@v2
-      - name: Install Python
+      - name: 🐍 I'm a doctor, not a zookeeper.
         uses: actions/setup-python@v2
         with:
           python-version: 3.8 #install the python needed
-      - name: Install dependencies
+      - name: 📦 I'm a doctor, not a database.
         run: |
           python -m pip install praw
           python -m pip install "pymongo[srv]"
-      - name: Run Python Script
+          python -m pip install python-dotenv
+      - name: 🥼 Please state the nature of the medical emergency!
         env:
           MONGODB_CONNECTION_STRING: ${{secrets.MONGODB_CONNECTION_STRING}}
           REDDIT_PASSWORD: ${{secrets.REDDIT_PASSWORD}}
@@ -31,17 +32,18 @@ jobs:
     name: Looking for qoutes
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
+      - name: 🔧 I'm a doctor, not an engineer.
         uses: actions/checkout@v2
-      - name: Install Python
+      - name: 🐍 I'm a doctor, not a zookeeper.
         uses: actions/setup-python@v2
         with:
           python-version: 3.8 #install the python needed
-      - name: Install dependencies
+      - name: 📦 I'm a doctor, not a database.
         run: |
           python -m pip install praw
           python -m pip install "pymongo[srv]"
-      - name: Run Python Script
+          python -m pip install python-dotenv
+      - name: 🥼 Please state the nature of the medical emergency!
         env:
           MONGODB_CONNECTION_STRING: ${{secrets.MONGODB_CONNECTION_STRING}}
           REDDIT_PASSWORD: ${{secrets.REDDIT_PASSWORD}}
