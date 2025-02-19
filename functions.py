@@ -12,6 +12,7 @@ redditUserName = "VoyagersEMH"
 doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor')
 moreQuotesRegex = re.compile(r'more quotes')
 optOutRegex = re.compile(r'ignore ?me|opt ?out')
+subOptOutRegex = re.compile(r'gtfo voyagersemh')
 file = open(os.path.dirname(os.path.abspath(__file__))+'/emh-quotes.json')
 emhQuotes = json.load(file)
 
@@ -24,17 +25,23 @@ reddit = praw.Reddit(
     password=os.getenv('REDDIT_PASSWORD')
 )
 
-subs = [
-    'shittydaystrom',
-    'startrek',
-    'voyager',
-    'startrekmemes',
-    'voyager_memes',
-    'deepspacenine'
-]
+# subs = [
+#     'shittydaystrom',
+#     'voyager',
+#     'startrekmemes',
+#     'voyager_memes',
+#     'deepspacenine',
+#     'StarTrekTNG',
+#     'risa'
+# ]
 
 # startreksub = reddit.subreddit("+".join(subs))
-startreksub = reddit.subreddit("testingground4bots")
+subs = getSubreddits()
+if subs.__len__() == 0:
+    exit()
+
+startreksub = reddit.subreddit("+".join(subs))
+
 
 def hasMoreQuotesCriteria(comment):
     parent = comment.parent()
@@ -77,9 +84,12 @@ def replyWithEMHQuote(comment):
     quote = emhQuotes[index]['quote']
     episode = emhQuotes[index]['episodeName']
     url = emhQuotes[index]['url']
-    contact = "\n\n\n\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
-    optout = "\n\n\n\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
-    reply = quote + "\n\n["+episode+"]("+url+")\n\n Ask me for more quotes or you can summon me!" + contact + optout
+    contact = "\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
+    optout = "\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
+    subOptOut = "\n ^(If you're a mod and want this bot to leave the sub, please reply with 'gtfo voyagersemh')"
+    askForMore = "\n Ask me for more quotes or you can summon me!"
+    addMoreQuotes = "\n You can contribute to the quote list [here]()!\n"
+    reply = quote + "\n\n["+episode+"]("+url+")\n"+ askForMore + contact + optout + subOptOut
 
     # template = '''\ 
     # {quote}\n\n
@@ -103,3 +113,19 @@ def hasUserOptedOut(username):
     optoutList = getOptOutList()
     for user in optoutList:
         return True if user == username else False
+    
+def isUserMod(Redditor, subredditName):
+    for sub in Redditor.moderated():
+        if sub == subredditName:
+            return True
+    return False
+
+def isModOptingSubOut(comment):
+    return subOptOutRegex.search(comment) != None
+
+def checkForSubOptOut(comment):
+    if isUserMod(comment.author, comment.subreddit.display_name) :
+        if isModOptingSubOut(comment.body):
+            print(comment.body)
+            optOutSubReddit(comment.subreddit.display_name)
+

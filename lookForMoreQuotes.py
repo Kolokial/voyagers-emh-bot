@@ -2,6 +2,8 @@ from functions import *
 
 def lookForMoreQuotesRequest(CommentForest):
     for comment in CommentForest:
+        checkForSubOptOut(comment)
+                
         if hasUserOptedOut(comment.author.name):
             continue
         elif isUserOptingOut(comment.body, comment.author.name):

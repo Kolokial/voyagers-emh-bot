@@ -2,6 +2,7 @@ from functions import *
 
 def startConversation(CommentForest):
     for comment in CommentForest:
+        checkForSubOptOut(comment)
         comment.refresh()
         comment.replies.replace_more(limit=None, threshold=0)
         if(doctorRegex.search(comment.body.lower()) is not None):
