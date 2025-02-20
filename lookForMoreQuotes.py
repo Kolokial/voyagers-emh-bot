@@ -2,15 +2,19 @@ from functions import *
 
 def lookForMoreQuotesRequest(CommentForest):
     for comment in CommentForest:
-        
+        if comment.author == None:
+            continue
+       
+        author = comment.author.name
+                
         if(hasSubOptedOut(comment)):
             continue
         elif(isModOptingSubOut(comment)):
             continue
-        elif hasUserOptedOut(comment.author.name):
+        elif hasUserOptedOut(author):
             continue
-        elif isUserOptingOut(comment.body, comment.author.name):
-            insertIntoOptOutTable(comment.author.name)
+        elif isUserOptingOut(comment.body, author):
+            insertIntoOptOutTable(author)
             continue
         elif hasMoreQuotesCriteria(comment):
             replyWithEMHQuote(comment)

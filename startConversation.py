@@ -1,23 +1,27 @@
 from functions import *
 def startConversation(CommentForest):
     for comment in CommentForest:
+        if comment.author == None:
+            continue
+       
+        author = comment.author.name
         if(hasSubOptedOut(comment)):
             print("Sub opted out!")
             continue
         elif(isModOptingSubOut(comment)):
             print("Sub is opting out!")
             continue
-        elif hasUserOptedOut(comment.author.name):
+        elif hasUserOptedOut(author):
             print("User has opted out")
             continue
-        elif isUserOptingOut(comment.body, comment.author.name):
+        elif isUserOptingOut(comment.body, author):
             print("User is opting out")
-            insertIntoOptOutTable(comment.author.name)
+            insertIntoOptOutTable(author)
             continue
 
         comment.refresh()
         #comment.replies.replace_more(limit=None, threshold=0)
-        print("Comment written by :", comment.author)
+        print("Comment written by :", author)
         print("replies", comment.replies.__len__())
         print("comment", comment.body)
         print("Id:", comment.id)
