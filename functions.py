@@ -135,5 +135,7 @@ def isModOptingSubOut(comment):
         return False
     
 def hasSubOptedOut(comment):
-    return comment.subreddit.display_name not in subs
+    subreddit = comment.subreddit.display_name
+    print("checking if ", subreddit, "has opted out.")
+    return  subreddit not in subs
 

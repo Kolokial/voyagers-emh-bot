@@ -16,7 +16,7 @@ def startConversation(CommentForest):
             continue
 
         comment.refresh()
-        comment.replies.replace_more(limit=None, threshold=0)
+        #comment.replies.replace_more(limit=None, threshold=0)
         print("Comment written by :", comment.author)
         print("replies", comment.replies.__len__())
         print("comment", comment.body)
@@ -44,7 +44,7 @@ for submission in startreksub.new(limit=100):
     print("Id:", submission.id)
     print("Text: ", submission.selftext)
     print("Comments: ", post.comments.__len__())
-    #post.comments.replace_more(limit=None, threshold=0)
+    post.comments.replace_more(limit=None, threshold=0)
     if post.comments.__len__() == 0:
         continue
 
