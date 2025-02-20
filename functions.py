@@ -26,13 +26,7 @@ reddit = praw.Reddit(
 )
 
 # subs = [
-#     'shittydaystrom',
-#     'voyager',
-#     'startrekmemes',
-#     'voyager_memes',
-#     'deepspacenine',
-#     'StarTrekTNG',
-#     'risa'
+#     "kolotesting"
 # ]
 
 # startreksub = reddit.subreddit("+".join(subs))
@@ -80,16 +74,21 @@ def getEmhReply(comment):
             return reply
     
 def replyWithEMHQuote(comment):
+    if(comment.author.name == redditUserName):
+        return
+
     index = randrange(emhQuotes.__len__())
-    quote = emhQuotes[index]['quote']
+    quote = "> "+emhQuotes[index]['quote']
     episode = emhQuotes[index]['episodeName']
     url = emhQuotes[index]['url']
-    contact = "\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
-    optout = "\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
-    subOptOut = "\n ^(If you're a mod and want this bot to leave the sub, please reply with 'gtfo voyagersemh')"
-    askForMore = "\n Ask me for more quotes or you can summon me!"
+    horizontalRule = "\n\n---\n\n"
+    askForMore = "^(Ask me for more quotes or you can summon me!)"
+    contact = "\n\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
+    optout = "\n\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
+    subOptOut = "\n\n ^(If you're a mod and want this bot to leave the sub, please reply with 'gtfo voyagersemh')"
+    
     addMoreQuotes = "\n You can contribute to the quote list [here]()!\n"
-    reply = quote + "\n\n["+episode+"]("+url+")\n"+ askForMore + contact + optout + subOptOut
+    reply = quote + "\n\n["+episode+"]("+url+")\n"+horizontalRule+ askForMore + contact + optout + subOptOut
 
     # template = '''\ 
     # {quote}\n\n
@@ -115,17 +114,26 @@ def hasUserOptedOut(username):
         return True if user == username else False
     
 def isUserMod(Redditor, subredditName):
+    if Redditor == None:
+        return False
     for sub in Redditor.moderated():
         if sub == subredditName:
             return True
     return False
 
-def isModOptingSubOut(comment):
+def hasSubOptOutCriteria(comment):
     return subOptOutRegex.search(comment) != None
 
-def checkForSubOptOut(comment):
-    if isUserMod(comment.author, comment.subreddit.display_name) :
-        if isModOptingSubOut(comment.body):
-            print(comment.body)
-            optOutSubReddit(comment.subreddit.display_name)
+def isModOptingSubOut(comment):
+    author = comment.author
+    subreddit = comment.subreddit.display_name
+    if isUserMod(author, subreddit) and hasSubOptOutCriteria(comment.body):
+        optOutSubReddit(subreddit)
+        subs.remove(subreddit)
+        return True
+    else:
+        return False
+    
+def hasSubOptedOut(comment):
+    return comment.subreddit.display_name not in subs
 
