@@ -19,7 +19,7 @@ def startConversation(CommentForest):
             insertIntoOptOutTable(author)
             continue
 
-        comment.refresh()
+        #comment.refresh()
         #comment.replies.replace_more(limit=None, threshold=0)
         print("Comment written by :", author)
         print("replies", comment.replies.__len__())
