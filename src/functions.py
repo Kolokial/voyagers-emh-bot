@@ -1,10 +1,10 @@
 from random import randrange
-from monogodb import *
+from src.mongodb import *
+from praw.models import Submission, Comment, Subreddit, comment_forest, Redditor
 import praw
 import re
 import json
 import os
-import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +14,8 @@ doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor|the emh')
 moreQuotesRegex = re.compile(r'more quotes')
 optOutRegex = re.compile(r'ignore ?me|opt ?out')
 subOptOutRegex = re.compile(r'gtfo voyagersemh')
-file = open(os.path.dirname(os.path.abspath(__file__))+'/emh-quotes.json')
+file = open(os.path.dirname(os.path.abspath(__file__)) +
+            '/../data/emh-quotes.json')
 emhQuotes = json.load(file)
 
 
@@ -38,44 +39,62 @@ if subs.__len__() == 0:
 startreksub = reddit.subreddit("+".join(subs))
 
 
-def hasMoreQuotesCriteria(comment):
-    parent = comment.parent()
-    return moreQuotesRegex.search(comment.body.lower()) \
-            and comment.author != redditUserName \
-            and parent.author == redditUserName \
-            and doesEmhReplyExist(comment) == False
+def isEmh(redditor: Redditor):
+    if redditor == None:
+        return False
 
-def hasEmhCommented(CommentForest):
-    for comment in CommentForest:
-        if(comment.author == redditUserName):
+    if redditor.name == redditUserName:
+        return True
+    else:
+        return False
+
+
+def hasMoreQuotesCriteria(comment: Comment):
+    parent = comment.parent()
+    print(moreQuotesRegex.search(comment.body.lower()))
+
+    if moreQuotesRegex.search(comment.body.lower()) \
+            and not isEmh(comment.author) \
+            and isEmh(parent.author) \
+            and doesEmhReplyExist(comment):
+        return False
+    return True
+
+
+def hasEmhCommented(commentForest: comment_forest):
+    for comment in commentForest:
+        if (isEmh(comment.author)):
             return True
-        if(comment.replies.__len__() != 0):
+        if (comment.replies.__len__() != 0):
             comment.replies.replace_more(None, 0)
             return hasEmhCommented(comment.replies)
         else:
             return False
 
-def doesEmhReplyExist(comment):
+
+def doesEmhReplyExist(comment: Comment):
     if comment.replies.__len__() == 0:
         return False
     else:
         for reply in comment.replies:
-            if(reply.author == redditUserName):
+            if (isEmh(reply.author)):
                 return True
 
-def getEmhReply(comment):
+
+def getEmhReply(comment: Comment):
     if comment.replies.__len__() == 0:
         return
-    
-    if comment.author == redditUserName:
+
+    if isEmh(comment.author):
         return comment
 
     for reply in comment.replies:
-        if reply.author == redditUserName:
+        if isEmh(reply.author):
             return reply
-    
-def replyWithEMHQuote(comment):
-    if(comment.author.name == redditUserName):
+
+
+def replyWithEMHQuote(comment: Comment):
+    if (isEmh(comment.author)):
         return
 
     index = randrange(emhQuotes.__len__())
@@ -87,56 +106,55 @@ def replyWithEMHQuote(comment):
     contact = "\n\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
     optout = "\n\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
     subOptOut = "\n\n ^(If you're a mod and want this bot to leave the sub, please reply with 'gtfo voyagersemh')"
-    
+
     addMoreQuotes = "\n You can contribute to the quote list [here]()!\n"
-    reply = quote + "\n\n["+episode+"]("+url+")\n"+horizontalRule+ askForMore + contact + optout + subOptOut
+    reply = quote + "\n\n["+episode+"]("+url+")\n"+horizontalRule + \
+        askForMore + contact + optout + subOptOut
 
-    # template = '''\ 
-    # {quote}\n\n
-    # ["+{episode}+"]("+{url}+")\n\n
-    # Ask me for more quotes!\n\n\n\n
-    # {contact}\n\n\n\n
-    # {optout}
-    # '''.format()
-
-    comment.reply(body=reply)
+    doctorsComment = comment.reply(body=reply)
+    updatePostsCommentedOn(comment.link_id)
+    updateEmhComments(doctorsComment.link_id)
     print("Replied to:" + comment.body)
     print("Replied with: "+reply)
 
-def isUserOptingOut(comment, author):
-    if author == redditUserName:
+
+def isUserOptingOut(comment: Comment, redditor: Redditor):
+    if isEmh(redditor):
         return False
     return optOutRegex.search(comment) != None
 
 
-def hasUserOptedOut(username):
+def hasUserOptedOut(username: str) -> bool:
     optoutList = getOptOutList()
     for user in optoutList:
         return True if user == username else False
-    
-def isUserMod(Redditor, subredditName):
-    if Redditor == None:
+
+
+def isUserMod(redditor: Redditor, subredditName: str) -> bool:
+    if redditor == None:
         return False
-    for sub in Redditor.moderated():
+    for sub in redditor.moderated():
         if sub == subredditName:
             return True
     return False
 
-def hasSubOptOutCriteria(comment):
+
+def hasSubOptOutCriteria(comment: Comment) -> bool:
     return subOptOutRegex.search(comment) != None
 
-def isModOptingSubOut(comment):
+
+def isModOptingSubOut(comment: Comment) -> bool:
     author = comment.author
     subreddit = comment.subreddit.display_name
     if hasSubOptOutCriteria(comment.body):
-        if isUserMod(author, subreddit) :
+        if isUserMod(author, subreddit):
             optOutSubReddit(subreddit)
             subs.remove(subreddit)
             return True
     else:
         return False
-    
-def hasSubOptedOut(comment):
-    subreddit = comment.subreddit.display_name
-    return  subreddit.lower() not in subs
 
+
+def hasSubOptedOut(comment: Comment) -> bool:
+    subreddit = comment.subreddit.display_name
+    return subreddit.lower() not in subs

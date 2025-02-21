@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/usr/local/bin/python"
+    ],
+    "python.analysis.extraPaths": [
+        "./tests/mocks"
+    ]
+}

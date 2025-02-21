@@ -1,0 +1,4 @@
+pymongo[srv]
+praw
+python-dotenv
+pytest

@@ -1,17 +1,21 @@
-from functions import *
+from src.functions import *
+import time
+
+
 def startConversation(CommentForest):
     for comment in CommentForest:
-        if comment.author == None:
+        if isEmh(comment.author) == None:
             continue
-       
-        author = comment.author.name
-        if(hasSubOptedOut(comment)):
+
+        author = comment.author
+        if (hasSubOptedOut(comment)):
             print(comment.subreddit.display_name, "has opted out")
             continue
-        elif(isModOptingSubOut(comment)):
-            print(comment.author.name, "is opting ", comment.subreddit.display_name, "out")
+        elif (isModOptingSubOut(comment)):
+            print(comment.author.name, "is opting ",
+                  comment.subreddit.display_name, "out")
             continue
-        elif hasUserOptedOut(author):
+        elif hasUserOptedOut(author.name):
             print(comment.author.name, "has opting out")
             continue
         elif isUserOptingOut(comment.body, author):
@@ -19,13 +23,13 @@ def startConversation(CommentForest):
             insertIntoOptOutTable(author)
             continue
 
-        #comment.refresh()
-        #comment.replies.replace_more(limit=None, threshold=0)
+        # comment.refresh()
+        # comment.replies.replace_more(limit=None, threshold=0)
         # print("Comment written by :", author)
         # print("replies", comment.replies.__len__())
         # print("comment", comment.body)
         # print("Id:", comment.id)
-        if(doctorRegex.search(comment.body.lower()) is not None):
+        if (doctorRegex.search(comment.body.lower()) is not None):
             print("found a comment mentioning the doctor")
             print("---------------------------------\n")
             print("Comment written by :", comment.author)
@@ -33,22 +37,26 @@ def startConversation(CommentForest):
             print("comment", comment.body)
             print("Id:", comment.id)
             print("permalink: ", comment.permalink)
-            if(doesEmhReplyExist(comment) == False):
+            if (doesEmhReplyExist(comment) == False):
                 print("with no previous replies")
                 replyWithEMHQuote(comment)
                 return
-            
-            if(comment.replies.__len__()):
+
+            if (comment.replies.__len__()):
                 time.sleep(2)
                 startConversation(comment.replies)
 
-for submission in startreksub.new(limit=100):
-    
-    post = reddit.submission(submission.id)
-    # print("--------------------------")
-    # print("Title: ", submission.title)
-    # print("Id:", submission.id)
-    # print("Text: ", submission.selftext)
+
+for post in startreksub.hot(limit=50):
+
+    # post = reddit.submission(post.id)
+    if hasEmhCommentedOnPost(post.id):
+        continue
+    print("--------------------------")
+    print("Subreddit:", post.subreddit.display_name)
+    print("Title: ", post.title)
+    # print("Id:", post.id)
+    # print("Text: ", post.selftext)
     # print("Comments: ", post.comments.__len__())
     while True:
         try:
