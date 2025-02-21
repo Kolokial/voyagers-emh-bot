@@ -19,6 +19,7 @@ def lookForMoreQuotesRequest(CommentForest):
         elif hasMoreQuotesCriteria(comment):
             replyWithEMHQuote(comment)
         elif comment.replies.__len__() >= 1:
+            time.sleep(2)
             lookForMoreQuotesRequest(comment.replies)
 
 for submission in startreksub.hot(limit=100):
@@ -36,3 +37,4 @@ for submission in startreksub.hot(limit=100):
         continue
 
     lookForMoreQuotesRequest(post.comments)
+    time.sleep(2)

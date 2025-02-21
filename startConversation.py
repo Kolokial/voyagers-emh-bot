@@ -38,6 +38,7 @@ def startConversation(CommentForest):
                 return
             
             if(comment.replies.__len__()):
+                time.sleep(2)
                 startConversation(comment.replies)
 
 for submission in startreksub.new(limit=100):
@@ -54,3 +55,4 @@ for submission in startreksub.new(limit=100):
 
     if hasEmhCommented(post.comments) == False:
         startConversation(post.comments)
+        time.sleep(2)
