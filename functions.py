@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 redditUserName = "VoyagersEMH"
-doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor')
+doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor|the emh')
 moreQuotesRegex = re.compile(r'more quotes')
 optOutRegex = re.compile(r'ignore ?me|opt ?out')
 subOptOutRegex = re.compile(r'gtfo voyagersemh')
