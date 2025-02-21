@@ -128,10 +128,11 @@ def hasSubOptOutCriteria(comment):
 def isModOptingSubOut(comment):
     author = comment.author
     subreddit = comment.subreddit.display_name
-    if isUserMod(author, subreddit) and hasSubOptOutCriteria(comment.body):
-        optOutSubReddit(subreddit)
-        subs.remove(subreddit)
-        return True
+    if hasSubOptOutCriteria(comment.body):
+        if isUserMod(author, subreddit) :
+            optOutSubReddit(subreddit)
+            subs.remove(subreddit)
+            return True
     else:
         return False
     
