@@ -8,12 +8,16 @@ def lookForMoreQuotesRequest(CommentForest):
         author = comment.author.name
                 
         if(hasSubOptedOut(comment)):
+            print(comment.subreddit.display_name, "has opted out")
             continue
         elif(isModOptingSubOut(comment)):
+            print(comment.author.name, "is opting ", comment.subreddit.display_name, "out")
             continue
         elif hasUserOptedOut(author):
+            print(comment.author.name, "has opting out")
             continue
         elif isUserOptingOut(comment.body, author):
+            print(comment.author.name, "is opting out")
             insertIntoOptOutTable(author)
             continue
         elif hasMoreQuotesCriteria(comment):
@@ -32,7 +36,14 @@ for submission in startreksub.hot(limit=100):
     # print("Text: ", submission.selftext)
     # print("Score: ", submission.score)
     # print("Comments:", post.num_comments)
-    post.comments.replace_more(limit=None, threshold=0)
+    while True:
+        try:
+            post.comments.replace_more()
+            break
+        except PossibleExceptions:
+            print("Handling replace_more exception")
+            sleep(5)
+
     if post.num_comments == 0:
         continue
 
