@@ -73,7 +73,7 @@ def getSubreddits():
   if result:
       for doc in result:
         print(doc)
-        list.append(doc['name'])
+        list.append(doc['name'].lower())
   else:
     print("No documents found.")
     print("\n")
