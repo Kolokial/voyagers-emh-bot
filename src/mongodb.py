@@ -84,7 +84,7 @@ def getSubreddits():
 def updatePostsCommentedOn(post_id):
   try: 
     query = { "post_id": post_id }
-    result = optout_table.insert_many([query])
+    result = commented_posts_table.insert_many([query])
     
   except pymongo.errors.OperationFailure:
     print("An authentication error was received. Are you sure your database user is authorized to perform write operations?")
