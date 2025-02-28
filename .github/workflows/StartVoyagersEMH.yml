@@ -38,7 +38,7 @@ jobs:
           python-version: 3.8 #install the python needed
       - name: 📦 I'm a doctor, not a database.
         run: |
-          python -m pip install -r requirements
+          python -m pip install -r requirements.txt
       - name: 🥼 Please state the nature of the medical emergency!
         env:
           MONGODB_CONNECTION_STRING: ${{secrets.MONGODB_CONNECTION_STRING}}
