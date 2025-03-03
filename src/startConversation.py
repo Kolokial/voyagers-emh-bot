@@ -1,3 +1,4 @@
+from types import NoneType
 from src.functions import *
 import time
 
@@ -15,7 +16,7 @@ def startConversation(CommentForest):
             print(comment.author.name, "is opting ",
                   comment.subreddit.display_name, "out")
             continue
-        elif hasUserOptedOut(author.name):
+        elif author != NoneType and hasUserOptedOut(author.name):
             print(comment.author.name, "has opting out")
             continue
         elif isUserOptingOut(comment.body, author):
