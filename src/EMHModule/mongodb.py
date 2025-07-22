@@ -1,27 +1,27 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from dotenv import load_dotenv
 import pymongo
 import sys
 import os
-from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
 uri = os.getenv('MONGODB_CONNECTION_STRING')
-
 client = MongoClient(uri, server_api=ServerApi('1'))
 
 try:
     client.admin.command('ping')
-    #print("Pinged your deployment. You successfully connected to MongoDB!")
+    #logging.info(f"Pinged your deployment. You successfully connected to MongoDB!")
 except Exception as e:
-    print("DB Connection Issue:", e)
+    logging.error(f"DB Connection Issue:", e)
 
 
 
 # return a friendly error if a URI error is thrown 
 except pymongo.errors.ConfigurationError:
-  print("An Invalid URI host error was received. Is your host name correct in your connection string?")
+  logging.info(f"An Invalid URI host error was received. Is your host name correct in your connection string?")
   sys.exit(1)
 
 db = client.voyagersEMHBot
@@ -37,13 +37,13 @@ def insertIntoOptOutTable(username):
 
     # return a friendly error if the operation fails
     except pymongo.errors.OperationFailure:
-        print("An authentication error was received. Are you sure your database user is authorized to perform write operations?")
+        logging.error(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
         sys.exit(1)
     else:
         inserted_count = len(result.inserted_ids)
-        print("I inserted %x documents." %(inserted_count))
+        logging.info(f"I inserted %x documents." %(inserted_count))
 
-        print("\n")
+        logging.info(f"\n")
 
 def getOptOutList():
   result = optout_table.find()
@@ -52,8 +52,7 @@ def getOptOutList():
       for doc in result:
         list.append(doc['name'])
   else:
-    print("No documents found.")
-    print("\n")
+    logging.info(f"No documents found.")
   return list
 
 def optOutSubReddit(subredditName):
@@ -61,24 +60,22 @@ def optOutSubReddit(subredditName):
       query_filter = { "name": subredditName }
       result = subreddits_table.delete_one(query_filter)
     except pymongo.errors.OperationFailure:
-        print("An authentication error was received. Are you sure your database user is authorized to perform write operations?")
+        logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
         sys.exit(1)
     else:
         deleted_count = result.deleted_count
-        print("I deleted %x documents." %(deleted_count))
-        print("\n")
+        logging.info(f"I deleted %x documents. {deleted_count}")
 
 def getSubreddits():
   result = subreddits_table.find()
   list = []
-  print(result)
+  logging.info(result)
   if result:
       for doc in result:
-        print(doc)
+        logging.info(doc)
         list.append(doc['name'].lower())
   else:
-    print("No documents found.")
-    print("\n")
+    logging.info(f"No documents found.")
   return list
 
 def updatePostsCommentedOn(post_id):
@@ -87,12 +84,11 @@ def updatePostsCommentedOn(post_id):
     result = commented_posts_table.insert_many([query])
     
   except pymongo.errors.OperationFailure:
-    print("An authentication error was received. Are you sure your database user is authorized to perform write operations?")
+    logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
     sys.exit(1)
   else:
     inserted_count = len(result.inserted_ids)
-    print("I inserted %x documents." %(inserted_count))
-    print("\n")
+    logging.info(f"I inserted %x documents." %(inserted_count))
 
 def hasEmhCommentedOnPost(post_id):
   posts = commented_posts_table.find({"post_id": post_id})
@@ -102,8 +98,7 @@ def hasEmhCommentedOnPost(post_id):
         if post['post_id'] == post_id:
            return True;
   else:
-    print("EMH hasn't commented on found.", post_id)
-    print("\n")
+    logging.info(f"EMH hasn't commented on found.", post_id)
   return False
 
 def getPostsEmhHasCommentedOn():
@@ -113,8 +108,7 @@ def getPostsEmhHasCommentedOn():
       for post in posts:
         list.append(post['post_id'])
   else:
-    print("EMH hasn't commented on found.")
-    print("\n")
+    logging.info(f"EMH hasn't commented on found.")
   return list
 
 
@@ -124,12 +118,11 @@ def updateEmhComments(comment_id):
     result = emh_comments.insert_many([query])
     
   except pymongo.errors.OperationFailure:
-    print("An authentication error was received. Are you sure your database user is authorized to perform write operations?")
+    logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
     sys.exit(1)
   else:
     inserted_count = len(result.inserted_ids)
-    print("I inserted %x documents." %(inserted_count))
-    print("\n")
+    logging.info(f"I inserted %x documents." %(inserted_count))
 
 def getEmhComments():
   comment_ids = emh_comments.find()
@@ -138,6 +131,5 @@ def getEmhComments():
       for comment_id in comment_ids:
         list.append(comment_id['comment_id'])
   else:
-    print("EMH hasn't commented.")
-    print("\n")
+    logging.info(f"EMH hasn't commented.")
   return list

@@ -15,6 +15,20 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Start conversation",
+            "request": "launch",
+            "type": "debugpy",
+            "console": "integratedTerminal",
+            "program": "${workspaceFolder}/src/startConversation.py",
+        },
+        {
+            "name": "Look for more quotes",
+            "request": "launch",
+            "type": "debugpy",
+            "console": "integratedTerminal",
+            "program": "${workspaceFolder}/src/startLookingForMoreQuotes.py",
         }
     ]
 }

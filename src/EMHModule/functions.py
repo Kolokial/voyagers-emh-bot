@@ -1,5 +1,6 @@
 from random import randrange
-from src.EMHModule.mongodb import *
+from EMHModule.mongodb import updatePostsCommentedOn, updateEmhComments, getOptOutList, insertIntoOptOutTable, getSubreddits, optOutSubReddit, hasEmhCommentedOnPost as dbHasEmhCommentedOnPost
+
 from praw.models import Submission, Comment, Subreddit, comment_forest, Redditor
 from praw import Reddit
 from types import NoneType
@@ -8,6 +9,7 @@ import praw
 import re
 import json
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,6 +32,7 @@ reddit = praw.Reddit(
     password=os.getenv('REDDIT_PASSWORD')
 )
 
+logging.basicConfig(level=os.getenv("LOGLEVEL", "INFO"))
 def getRedditInstance() -> Reddit:
     return reddit
 
@@ -59,7 +62,7 @@ def isEmh(redditor: Redditor):
 
 def hasMoreQuotesCriteria(comment: Comment):
     parent = comment.parent()
-    print(moreQuotesRegex.search(comment.body.lower()))
+    logging.info(moreQuotesRegex.search(comment.body.lower()))
 
     if moreQuotesRegex.search(comment.body.lower()) \
             and not isEmh(comment.author) \
@@ -122,8 +125,8 @@ def replyWithEMHQuote(comment: Comment):
     doctorsComment = comment.reply(body=reply)
     updatePostsCommentedOn(comment.link_id)
     updateEmhComments(doctorsComment.id)
-    print("Replied to:" + comment.body)
-    print("Replied with: "+reply)
+    logging.info(f"Replied to: {comment.body}")
+    logging.info(f"Replied with: {reply}")
 
 
 def isUserOptingOut(comment: Comment, redditor: Redditor):
@@ -166,6 +169,8 @@ def isModOptingSubOut(comment: Comment) -> bool:
 def hasSubOptedOut(subredditName: str) -> bool:
     return subredditName.lower() not in subs
 
+def hasEmhCommentedOnPost(post_id) -> bool:
+    return dbHasEmhCommentedOnPost(post_id)
 
 def startConversation(comments: comment_forest):
     comment: Comment
@@ -174,38 +179,37 @@ def startConversation(comments: comment_forest):
             continue
 
         author = comment.author
-        if (hasSubOptedOut(comment)):
-            print(comment.subreddit.display_name, "has opted out")
+        if (hasSubOptedOut(comment.subreddit.display_name)):
+            logging.info(f"{comment.subreddit.display_name} has opted out")
             continue
         elif (isModOptingSubOut(comment)):
-            print(comment.author.name, "is opting ",
-                  comment.subreddit.display_name, "out")
+            logging.info(f"{comment.author.name} is opting {comment.subreddit.display_name} out")
             continue
         elif author != None and hasUserOptedOut(author.name):
-            print(comment.author.name, "has opting out")
+            logging.info(f"{comment.author.name} has opting out")
             continue
         elif isUserOptingOut(comment.body, author):
-            print(comment.author.name, "is opting out")
+            logging.info(f"{comment.author.name} is opting out")
             insertIntoOptOutTable(author)
             continue
 
         # comment.refresh()
         # comment.replies.replace_more(limit=None, threshold=0)
-        # print("Comment written by :", author)
-        # print("replies", comment.replies.__len__())
-        # print("comment", comment.body)
-        # print("Id:", comment.id)
+        # logging.info(f"Comment written by :", author)
+        # logging.info(f"replies", comment.replies.__len__())
+        # logging.info(f"comment", comment.body)
+        # logging.info(f"Id:", comment.id)
         if (doctorRegex.search(comment.body.lower()) is not None):
-            print("Found a comment mentioning the doctor")
-            print("---------------------------------\n")
-            print("Post Title:", comment.submission.title)
-            print("Comment written by :", comment.author)
-            print("replies", comment.replies.__len__())
-            print("comment", comment.body)
-            print("Id:", comment.id)
-            print("permalink: ", "https://reddit.com"+comment.permalink)
+            logging.info(f"Found a comment mentioning the doctor")
+            logging.info(f"---------------------------------\n")
+            logging.info(f"Post Title: {comment.submission.title}")
+            logging.info(f"Comment written by : {comment.author}")
+            logging.info(f"replies {comment.replies.__len__()}")
+            logging.info(f"comment {comment.body}")
+            logging.info(f"Id: {comment.id}")
+            logging.info(f"permalink: https://reddit.com{comment.permalink}")
             if (doesEmhReplyExist(comment) == False):
-                print("with no previous replies")
+                logging.info(f"with no previous replies")
                 replyWithEMHQuote(comment)
                 return
 
