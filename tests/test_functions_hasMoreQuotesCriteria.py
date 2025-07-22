@@ -1,19 +1,21 @@
 
 import pytest
 # Assuming these are the actual imports
-from src.functions import hasMoreQuotesCriteria, redditUserName
+from praw.models import Redditor
+from src.EMHModule.functions import hasMoreQuotesCriteria, redditUserName
 
 
 def test_hasMoreQuotesCriteria(mocker):
 
-    mock_isEmh = mocker.patch('src.functions.isEmh')
-    mock_doesEmhReplyExist = mocker.patch('src.functions.doesEmhReplyExist')
+    mock_isEmh = mocker.patch('src.EMHModule.functions.isEmh', mockIsEMH)
+    mock_doesEmhReplyExist = mocker.patch('src.EMHModule.functions.doesEmhReplyExist')
 
-    mock_isEmh.return_value = False
     mock_doesEmhReplyExist.return_value = True
 
     # Mocking a Comment object
     comment = mocker.MagicMock()
+    comment.author.name = "SomeoneElse"
+    
     parent_comment = mocker.MagicMock()
     parent_comment.author.name = redditUserName
 
@@ -57,3 +59,9 @@ def test_hasMoreQuotesCriteria(mocker):
     # doesEmhReplyExist.return_value = True
     # result = hasMoreQuotesCriteria(comment)
     # assert result == False, "Expected False when a reply exists"
+
+def mockIsEMH(author: Redditor) -> bool:
+    if(author.name == redditUserName):
+        return True
+    else:
+        False

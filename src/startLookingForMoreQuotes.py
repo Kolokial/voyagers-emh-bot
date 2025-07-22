@@ -1,14 +1,20 @@
+from  datetime import datetime
 from time import sleep
 from EMHModule.functions import *
 from EMHModule.lookForMoreQuotes import lookForMoreQuotesRequest
 
 # for post in startreksub.hot(limit=50):
-comments = getEmhComments()
+commentIds = getEmhComments()
 reddit = getRedditInstance()
 
-for commentId in comments:
+for commentId in commentIds:
     comment = reddit.comment(commentId)
-    
+    timestamp = int(comment.created_utc)
+    time_since_comment_written = datetime.now() - datetime.fromtimestamp(timestamp)
+
+    if(comment.locked | time_since_comment_written.days > 30):
+        continue       
+        
     comment.refresh()
     comment.replies.replace_more()
     # print("--------------------------")

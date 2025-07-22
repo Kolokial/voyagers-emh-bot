@@ -1,7 +1,9 @@
 from random import randrange
-from EMHModule.mongodb import *
+from src.EMHModule.mongodb import *
 from praw.models import Submission, Comment, Subreddit, comment_forest, Redditor
 from praw import Reddit
+from types import NoneType
+import time
 import praw
 import re
 import json
@@ -32,17 +34,18 @@ def getRedditInstance() -> Reddit:
     return reddit
 
 
-# subs = [
-#     "kolotesting"
-# ]
 
-# startreksub = reddit.subreddit("+".join(subs))
 subs = getSubreddits()
 if subs.__len__() == 0:
     exit()
 
-startreksub = reddit.subreddit("+".join(subs))
 
+def getListOfSubs() -> str: 
+    return reddit.subreddit("+".join(subs))
+
+    # return reddit.subreddit("+".join([
+    #     "kolotesting"
+    # ]))
 
 def isEmh(redditor: Redditor):
     if redditor == None:
@@ -118,7 +121,7 @@ def replyWithEMHQuote(comment: Comment):
 
     doctorsComment = comment.reply(body=reply)
     updatePostsCommentedOn(comment.link_id)
-    updateEmhComments(doctorsComment.link_id)
+    updateEmhComments(doctorsComment.id)
     print("Replied to:" + comment.body)
     print("Replied with: "+reply)
 
@@ -160,6 +163,52 @@ def isModOptingSubOut(comment: Comment) -> bool:
         return False
 
 
-def hasSubOptedOut(comment: Comment) -> bool:
-    subreddit = comment.subreddit.display_name
-    return subreddit.lower() not in subs
+def hasSubOptedOut(subredditName: str) -> bool:
+    return subredditName.lower() not in subs
+
+
+def startConversation(comments: comment_forest):
+    comment: Comment
+    for comment in comments:
+        if isEmh(comment.author) == None:
+            continue
+
+        author = comment.author
+        if (hasSubOptedOut(comment)):
+            print(comment.subreddit.display_name, "has opted out")
+            continue
+        elif (isModOptingSubOut(comment)):
+            print(comment.author.name, "is opting ",
+                  comment.subreddit.display_name, "out")
+            continue
+        elif author != None and hasUserOptedOut(author.name):
+            print(comment.author.name, "has opting out")
+            continue
+        elif isUserOptingOut(comment.body, author):
+            print(comment.author.name, "is opting out")
+            insertIntoOptOutTable(author)
+            continue
+
+        # comment.refresh()
+        # comment.replies.replace_more(limit=None, threshold=0)
+        # print("Comment written by :", author)
+        # print("replies", comment.replies.__len__())
+        # print("comment", comment.body)
+        # print("Id:", comment.id)
+        if (doctorRegex.search(comment.body.lower()) is not None):
+            print("Found a comment mentioning the doctor")
+            print("---------------------------------\n")
+            print("Post Title:", comment.submission.title)
+            print("Comment written by :", comment.author)
+            print("replies", comment.replies.__len__())
+            print("comment", comment.body)
+            print("Id:", comment.id)
+            print("permalink: ", "https://reddit.com"+comment.permalink)
+            if (doesEmhReplyExist(comment) == False):
+                print("with no previous replies")
+                replyWithEMHQuote(comment)
+                return
+
+            if (comment.replies.__len__()):
+                #time.sleep(2)
+                startConversation(comment.replies)

@@ -1,15 +1,19 @@
 
+from datetime import time
+from time import sleep
+from EMHModule.functions import getListOfSubs, hasEmhCommented, startConversation
 from EMHModule.mongodb import hasEmhCommentedOnPost
 
+startreksub = getListOfSubs()
 
 for post in startreksub.hot(limit=50):
 
     # post = reddit.submission(post.id)
     if hasEmhCommentedOnPost(post.id):
         continue
-    print("--------------------------")
-    print("Subreddit:", post.subreddit.display_name)
-    print("Title: ", post.title)
+    # print("--------------------------")
+    # print("Subreddit:", post.subreddit.display_name)
+    # print("Title: ", post.title)
     # print("Id:", post.id)
     # print("Text: ", post.selftext)
     # print("Comments: ", post.comments.__len__())
@@ -25,4 +29,4 @@ for post in startreksub.hot(limit=50):
 
     if hasEmhCommented(post.comments) == False:
         startConversation(post.comments)
-        time.sleep(2)
+        #sleep(1)
