@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
-from src.functions import isEmh  # Assuming your function is in functions.py
+from src.EMHModule.functions import isEmh
 from tests.mocks.Redditor import Redditor
 
 
