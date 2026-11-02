@@ -1,33 +1,41 @@
-from  datetime import datetime
-from time import sleep
-from EMHModule.functions import getRedditInstance
-from EMHModule.mongodb import getEmhComments
-from EMHModule.lookForMoreQuotes import lookForMoreQuotesRequest
 import logging
-# for post in startreksub.hot(limit=50):
-commentIds = getEmhComments()
-reddit = getRedditInstance()
+import os
+from datetime import datetime, timezone
 
-for commentId in commentIds:
-    comment = reddit.comment(commentId)
-    timestamp = int(comment.created_utc)
-    time_since_comment_written = datetime.now() - datetime.fromtimestamp(timestamp)
+from praw.exceptions import PRAWException
+from prawcore.exceptions import PrawcoreException
 
-    if(comment.locked | time_since_comment_written.days > 30):
-        continue       
-        
-    comment.refresh()
-    comment.replies.replace_more()
-    # logging.info(f"--------------------------")
-    # logging.info(f"Title: {comment.title}")
-    # logging.info(f"Id:{comment.id}")
-    # logging.info(f"Text: {comment.selftext}")
-    # logging.info(f"Score: {comment.score}")
-    while  comment.replies.__len__() > 0:    
+from EMHModule.functions import getRedditInstance, hasSubOptedOut, replaceMoreWithRetry
+from EMHModule.lookForMoreQuotes import lookForMoreQuotesRequest
+from EMHModule.mongodb import getEmhComments
+
+logger = logging.getLogger(__name__)
+
+MAX_COMMENT_AGE_DAYS = 30
+
+
+def main():
+    reddit = getRedditInstance()
+
+    for commentId in getEmhComments():
+        comment = reddit.comment(commentId)
         try:
-            comment.replies.replace_more()
+            written = datetime.fromtimestamp(comment.created_utc, timezone.utc)
+            age = datetime.now(timezone.utc) - written
+            if comment.locked or age.days > MAX_COMMENT_AGE_DAYS:
+                continue
+            if hasSubOptedOut(comment.subreddit.display_name):
+                continue
+            comment.refresh()
+        except (PrawcoreException, PRAWException) as e:
+            # Deleted or removed comments can't be loaded; skip them.
+            logger.warning(f"Could not load comment {commentId}: {e}")
+            continue
+
+        if replaceMoreWithRetry(comment.replies):
             lookForMoreQuotesRequest(comment.replies)
-            break
-        except PossibleExceptions:
-            logging.info(f"Handling replace_more exception")
-            sleep(5)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=os.getenv("LOGLEVEL", "INFO"))
+    main()

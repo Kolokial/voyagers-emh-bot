@@ -1,5 +1,3 @@
-pymongo[srv]
-praw
-python-dotenv
-pytest
-pytest-mock
+pymongo[srv]==4.11.1
+praw==7.8.1
+python-dotenv==1.0.1

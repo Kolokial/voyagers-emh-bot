@@ -1,135 +1,82 @@
+import logging
+import os
+from functools import lru_cache
+
+from dotenv import load_dotenv
+from pymongo.database import Database
+from pymongo.errors import ConfigurationError
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from dotenv import load_dotenv
-import pymongo
-import sys
-import os
-import logging
 
 load_dotenv()
 
-uri = os.getenv('MONGODB_CONNECTION_STRING')
-client = MongoClient(uri, server_api=ServerApi('1'))
+logger = logging.getLogger(__name__)
 
-try:
-    client.admin.command('ping')
-    #logging.info(f"Pinged your deployment. You successfully connected to MongoDB!")
-except Exception as e:
-    logging.error(f"DB Connection Issue:", e)
+# Case-insensitive matching, used for subreddit names.
+CASE_INSENSITIVE = {"locale": "en", "strength": 2}
 
 
+@lru_cache(maxsize=None)
+def getDatabase() -> Database:
+    """Connect on first use, so importing this module has no side effects."""
+    uri = os.getenv('MONGODB_CONNECTION_STRING')
+    if not uri:
+        raise RuntimeError("MONGODB_CONNECTION_STRING is not set")
 
-# return a friendly error if a URI error is thrown 
-except pymongo.errors.ConfigurationError:
-  logging.info(f"An Invalid URI host error was received. Is your host name correct in your connection string?")
-  sys.exit(1)
+    try:
+        client = MongoClient(uri, server_api=ServerApi('1'))
+        client.admin.command('ping')
+    except ConfigurationError:
+        logger.error("Invalid MongoDB URI. Is the host name in your connection string correct?")
+        raise
 
-db = client.voyagersEMHBot
-
-optout_table = db['user_optout']
-subreddits_table = db['subreddits']
-commented_posts_table = db['commented_posts']
-emh_comments = db['emh_comments']
-
-def insertIntoOptOutTable(username):
-    try: 
-        result = optout_table.insert_many([{"name": username}])
-
-    # return a friendly error if the operation fails
-    except pymongo.errors.OperationFailure:
-        logging.error(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
-        sys.exit(1)
-    else:
-        inserted_count = len(result.inserted_ids)
-        logging.info(f"I inserted %x documents." %(inserted_count))
-
-        logging.info(f"\n")
-
-def getOptOutList():
-  result = optout_table.find()
-  list = []
-  if result:
-      for doc in result:
-        list.append(doc['name'])
-  else:
-    logging.info(f"No documents found.")
-  return list
-
-def optOutSubReddit(subredditName):
-    try: 
-      query_filter = { "name": subredditName }
-      result = subreddits_table.delete_one(query_filter)
-    except pymongo.errors.OperationFailure:
-        logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
-        sys.exit(1)
-    else:
-        deleted_count = result.deleted_count
-        logging.info(f"I deleted %x documents. {deleted_count}")
-
-def getSubreddits():
-  result = subreddits_table.find()
-  list = []
-  logging.info(result)
-  if result:
-      for doc in result:
-        logging.info(doc)
-        list.append(doc['name'].lower())
-  else:
-    logging.info(f"No documents found.")
-  return list
-
-def updatePostsCommentedOn(post_id):
-  try: 
-    query = { "post_id": post_id }
-    result = commented_posts_table.insert_many([query])
-    
-  except pymongo.errors.OperationFailure:
-    logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
-    sys.exit(1)
-  else:
-    inserted_count = len(result.inserted_ids)
-    logging.info(f"I inserted %x documents." %(inserted_count))
-
-def hasEmhCommentedOnPost(post_id):
-  posts = commented_posts_table.find({"post_id": post_id})
-  
-  if posts:
-      for post in posts:
-        if post['post_id'] == post_id:
-           return True;
-  else:
-    logging.info(f"EMH hasn't commented on found.", post_id)
-  return False
-
-def getPostsEmhHasCommentedOn():
-  posts = commented_posts_table.find()
-  list = []
-  if posts:
-      for post in posts:
-        list.append(post['post_id'])
-  else:
-    logging.info(f"EMH hasn't commented on found.")
-  return list
+    return client.voyagersEMHBot
 
 
-def updateEmhComments(comment_id):
-  try: 
-    query = { "comment_id": comment_id }
-    result = emh_comments.insert_many([query])
-    
-  except pymongo.errors.OperationFailure:
-    logging.info(f"An authentication error was received. Are you sure your database user is authorized to perform write operations?")
-    sys.exit(1)
-  else:
-    inserted_count = len(result.inserted_ids)
-    logging.info(f"I inserted %x documents." %(inserted_count))
+def _table(name: str):
+    return getDatabase()[name]
 
-def getEmhComments():
-  comment_ids = emh_comments.find()
-  list = []
-  if comment_ids:
-      for comment_id in comment_ids:
-        list.append(comment_id['comment_id'])
-  else:
-    logging.info(f"EMH hasn't commented.")
-  return list
+
+def _insertIfMissing(tableName: str, document: dict):
+    # Upsert so repeated runs don't create duplicate records.
+    result = _table(tableName).update_one(document, {"$setOnInsert": document}, upsert=True)
+    if result.upserted_id is not None:
+        logger.info(f"Added {document} to {tableName}")
+
+
+def insertIntoOptOutTable(username: str):
+    _insertIfMissing('user_optout', {"name": username})
+
+
+def getOptOutList() -> list[str]:
+    return [doc['name'] for doc in _table('user_optout').find()]
+
+
+def optOutSubReddit(subredditName: str):
+    result = _table('subreddits').delete_many({"name": subredditName}, collation=CASE_INSENSITIVE)
+    logger.info(f"Removed {result.deleted_count} subreddit record(s) for {subredditName}")
+
+
+def getSubreddits() -> list[str]:
+    subs = [doc['name'].lower() for doc in _table('subreddits').find()]
+    if not subs:
+        logger.info("No subreddits found.")
+    return subs
+
+
+def updatePostsCommentedOn(post_id: str):
+    _insertIfMissing('commented_posts', {"post_id": post_id})
+
+
+def hasEmhCommentedOnPost(post_id: str) -> bool:
+    # Older records were saved with Reddit's "t3_" prefix, so check both forms.
+    query = {"post_id": {"$in": [post_id, f"t3_{post_id}"]}}
+    return _table('commented_posts').find_one(query) is not None
+
+
+def updateEmhComments(comment_id: str):
+    _insertIfMissing('emh_comments', {"comment_id": comment_id})
+
+
+def getEmhComments() -> list[str]:
+    return [doc['comment_id'] for doc in _table('emh_comments').find()]

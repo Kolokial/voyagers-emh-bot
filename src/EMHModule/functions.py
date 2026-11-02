@@ -1,218 +1,234 @@
-from random import randrange
-from EMHModule.mongodb import updatePostsCommentedOn, updateEmhComments, getOptOutList, insertIntoOptOutTable, getSubreddits, optOutSubReddit, hasEmhCommentedOnPost as dbHasEmhCommentedOnPost
-
-from praw.models import Submission, Comment, Subreddit, comment_forest, Redditor
-from praw import Reddit
-from types import NoneType
-import time
-import praw
-import re
 import json
-import os
 import logging
+import os
+import re
+from random import choice
+from time import sleep
+
+import praw
 from dotenv import load_dotenv
+from praw.models import Comment, Redditor, Subreddit
+from prawcore.exceptions import PrawcoreException
+
+from EMHModule.mongodb import (
+    getOptOutList,
+    getSubreddits,
+    hasEmhCommentedOnPost as dbHasEmhCommentedOnPost,
+    insertIntoOptOutTable,
+    optOutSubReddit,
+    updateEmhComments,
+    updatePostsCommentedOn,
+)
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 redditUserName = "VoyagersEMH"
-doctorRegex = re.compile(r'voyager\'?s ?emh|the doctor|the emh')
-moreQuotesRegex = re.compile(r'more quotes')
-optOutRegex = re.compile(r'ignore ?me|opt ?out')
-subOptOutRegex = re.compile(r'gtfo voyagersemh')
-file = open(os.path.dirname(os.path.abspath(__file__)) +
-            '/../../data/emh-quotes.json')
-emhQuotes = json.load(file)
+
+doctorRegex = re.compile(r"\b(voyager'?s ?emh|the doctor|the emh)\b", re.IGNORECASE)
+moreQuotesRegex = re.compile(r"\bmore quotes\b", re.IGNORECASE)
+# The whole comment has to be the command, so ordinary sentences such as
+# "you can opt out of that" don't opt people out by accident.
+optOutRegex = re.compile(r"^\W*(ignore ?me|opt ?out)\W*$", re.IGNORECASE)
+subOptOutRegex = re.compile(r"\bgtfo voyagersemh\b", re.IGNORECASE)
+
+_quotesPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data', 'emh-quotes.json')
+with open(_quotesPath, encoding='utf-8') as quotesFile:
+    emhQuotes = json.load(quotesFile)
+
+_reddit = None
+_subs = None
+_optedOutUsers = None
 
 
-reddit = praw.Reddit(
-    user_agent="LCARS:Voyagers EMH:0.1 (by u/koloqial)",
-    client_id=os.getenv('CLIENT_ID'),
-    client_secret=os.getenv('CLIENT_SECRET'),
-    username=redditUserName,
-    password=os.getenv('REDDIT_PASSWORD')
-)
-
-logging.basicConfig(level=os.getenv("LOGLEVEL", "INFO"))
-def getRedditInstance() -> Reddit:
-    return reddit
-
-
-
-subs = getSubreddits()
-if subs.__len__() == 0:
-    exit()
+def getRedditInstance() -> praw.Reddit:
+    global _reddit
+    if _reddit is None:
+        _reddit = praw.Reddit(
+            user_agent="LCARS:Voyagers EMH:0.1 (by u/koloqial)",
+            client_id=os.getenv('CLIENT_ID'),
+            client_secret=os.getenv('CLIENT_SECRET'),
+            username=redditUserName,
+            password=os.getenv('REDDIT_PASSWORD')
+        )
+    return _reddit
 
 
-def getListOfSubs() -> str: 
-    return reddit.subreddit("+".join(subs))
-
-    # return reddit.subreddit("+".join([
-    #     "kolotesting"
-    # ]))
-
-def isEmh(redditor: Redditor):
-    if redditor == None:
-        return False
-
-    if redditor.name == redditUserName:
-        return True
-    else:
-        return False
+def getSubs() -> list[str]:
+    """Lowercase names of the subreddits the bot is active in."""
+    global _subs
+    if _subs is None:
+        _subs = getSubreddits()
+    return _subs
 
 
-def hasMoreQuotesCriteria(comment: Comment):
-    parent = comment.parent()
-    logging.info(moreQuotesRegex.search(comment.body.lower()))
+def getListOfSubs() -> Subreddit | None:
+    subs = getSubs()
+    if not subs:
+        return None
+    return getRedditInstance().subreddit("+".join(subs))
 
-    if moreQuotesRegex.search(comment.body.lower()) \
-            and not isEmh(comment.author) \
-            and isEmh(parent.author) \
-            and doesEmhReplyExist(comment):
-        return True
+
+def replaceMoreWithRetry(forest, attempts: int = 3, delay: int = 5) -> bool:
+    """Load the hidden "more comments" in a comment forest, retrying on Reddit errors."""
+    for attempt in range(1, attempts + 1):
+        try:
+            forest.replace_more()
+            return True
+        except PrawcoreException as e:
+            logger.warning(f"replace_more failed (attempt {attempt}/{attempts}): {e}")
+            sleep(delay)
     return False
 
 
-def hasEmhCommented(commentForest: comment_forest):
+def isEmh(redditor: Redditor | None) -> bool:
+    return redditor is not None and redditor.name.lower() == redditUserName.lower()
+
+
+def doesEmhReplyExist(comment: Comment) -> bool:
+    return any(isEmh(reply.author) for reply in comment.replies)
+
+
+def hasEmhCommented(commentForest) -> bool:
     for comment in commentForest:
-        if (isEmh(comment.author)):
+        if isEmh(comment.author) or hasEmhCommented(comment.replies):
             return True
-        if (comment.replies.__len__() != 0):
-            comment.replies.replace_more(None, 0)
-            return hasEmhCommented(comment.replies)
-        else:
-            return False
+    return False
 
 
-def doesEmhReplyExist(comment: Comment):
-    if comment.replies.__len__() == 0:
+def hasMoreQuotesCriteria(comment: Comment) -> bool:
+    """True when someone replied "more quotes" to the EMH and hasn't had an answer yet."""
+    if isEmh(comment.author) or not moreQuotesRegex.search(comment.body):
         return False
-    else:
-        for reply in comment.replies:
-            if (isEmh(reply.author)):
-                return True
+    if doesEmhReplyExist(comment):
+        return False
+    # Checked last because parent() can cost an API call.
+    return isEmh(comment.parent().author)
 
 
-def getEmhReply(comment: Comment):
-    if comment.replies.__len__() == 0:
-        return
-
-    if isEmh(comment.author):
-        return comment
-
-    for reply in comment.replies:
-        if isEmh(reply.author):
-            return reply
+def postIdFromComment(comment: Comment) -> str:
+    # link_id is the post's full name, e.g. "t3_abc123".
+    return comment.link_id.split('_', 1)[-1]
 
 
-def replyWithEMHQuote(comment: Comment):
-    if (isEmh(comment.author)):
-        return
-
-    index = randrange(emhQuotes.__len__())
-    quote = "> "+emhQuotes[index]['quote']
-    episode = emhQuotes[index]['episodeName']
-    url = emhQuotes[index]['url']
+def buildReply(quote: dict) -> str:
     horizontalRule = "\n\n---\n\n"
     askForMore = "^(Ask me for more quotes or you can summon me!)"
     contact = "\n\n^(Is this annoying? Can I do better? Tell my [creator](https://www.reddit.com/user/koloqial)!)"
     optout = "\n\n ^(If you wish for the EMH to not reply to you ever again, simply reply with 'optout')"
     subOptOut = "\n\n ^(If you're a mod and want this bot to leave the sub, please reply with 'gtfo voyagersemh')"
+    return ("> " + quote['quote'] + "\n\n[" + quote['episodeName'] + "](" + quote['url'] + ")\n"
+            + horizontalRule + askForMore + contact + optout + subOptOut)
 
-    addMoreQuotes = "\n You can contribute to the quote list [here]()!\n"
-    reply = quote + "\n\n["+episode+"]("+url+")\n"+horizontalRule + \
-        askForMore + contact + optout + subOptOut
 
+def replyWithEMHQuote(comment: Comment):
+    if isEmh(comment.author):
+        return
+
+    reply = buildReply(choice(emhQuotes))
     doctorsComment = comment.reply(body=reply)
-    updatePostsCommentedOn(comment.link_id)
+    updatePostsCommentedOn(postIdFromComment(comment))
     updateEmhComments(doctorsComment.id)
-    logging.info(f"Replied to: {comment.body}")
-    logging.info(f"Replied with: {reply}")
+    logger.info(f"Replied to: {comment.body}")
+    logger.info(f"Replied with: {reply}")
 
 
-def isUserOptingOut(comment: Comment, redditor: Redditor):
+def isUserOptingOut(body: str, redditor: Redditor | None) -> bool:
     if isEmh(redditor):
         return False
-    return optOutRegex.search(comment) != None
+    return optOutRegex.search(body) is not None
+
+
+def _getOptedOutUsers() -> set[str]:
+    global _optedOutUsers
+    if _optedOutUsers is None:
+        _optedOutUsers = {name.lower() for name in getOptOutList()}
+    return _optedOutUsers
 
 
 def hasUserOptedOut(username: str) -> bool:
-    optoutList = getOptOutList()
-    for user in optoutList:
-        return True if user == username else False
+    return username.lower() in _getOptedOutUsers()
 
 
-def isUserMod(redditor: Redditor, subredditName: str) -> bool:
-    if redditor == None:
+def optUserOut(username: str):
+    insertIntoOptOutTable(username)
+    _getOptedOutUsers().add(username.lower())
+
+
+def isUserMod(redditor: Redditor | None, subredditName: str) -> bool:
+    if redditor is None:
         return False
-    for sub in redditor.moderated():
-        if sub == subredditName:
-            return True
-    return False
+    # praw compares Subreddit objects to strings case-insensitively.
+    return any(sub == subredditName for sub in redditor.moderated())
 
 
-def hasSubOptOutCriteria(comment: Comment) -> bool:
-    return subOptOutRegex.search(comment) != None
+def hasSubOptOutCriteria(body: str) -> bool:
+    return subOptOutRegex.search(body) is not None
 
 
 def isModOptingSubOut(comment: Comment) -> bool:
-    author = comment.author
-    subreddit = comment.subreddit.display_name
-    if hasSubOptOutCriteria(comment.body):
-        if isUserMod(author, subreddit):
-            optOutSubReddit(subreddit)
-            subs.remove(subreddit)
-            return True
-    else:
+    if isEmh(comment.author) or not hasSubOptOutCriteria(comment.body):
         return False
+
+    subreddit = comment.subreddit.display_name
+    if not isUserMod(comment.author, subreddit):
+        return False
+
+    optOutSubReddit(subreddit)
+    subs = getSubs()
+    if subreddit.lower() in subs:
+        subs.remove(subreddit.lower())
+    return True
 
 
 def hasSubOptedOut(subredditName: str) -> bool:
-    return subredditName.lower() not in subs
+    return subredditName.lower() not in getSubs()
 
-def hasEmhCommentedOnPost(post_id) -> bool:
+
+def hasEmhCommentedOnPost(post_id: str) -> bool:
     return dbHasEmhCommentedOnPost(post_id)
 
-def startConversation(comments: comment_forest):
-    comment: Comment
+
+def shouldSkipComment(comment: Comment) -> bool:
+    """Handle opt-out commands and return True if the EMH must not reply to this comment."""
+    author = comment.author
+    if author is None or isEmh(author):
+        return True
+
+    subreddit = comment.subreddit.display_name
+    if hasSubOptedOut(subreddit):
+        logger.info(f"{subreddit} has opted out")
+        return True
+    if isModOptingSubOut(comment):
+        logger.info(f"{author.name} is opting {subreddit} out")
+        return True
+    if hasUserOptedOut(author.name):
+        logger.info(f"{author.name} has opted out")
+        return True
+    if isUserOptingOut(comment.body, author):
+        logger.info(f"{author.name} is opting out")
+        optUserOut(author.name)
+        return True
+    return False
+
+
+def startConversation(comments) -> bool:
+    """Reply to the first comment mentioning the doctor. Returns True once a reply is made."""
     for comment in comments:
-        if isEmh(comment.author) == None:
-            continue
+        if not shouldSkipComment(comment) \
+                and doctorRegex.search(comment.body) \
+                and not doesEmhReplyExist(comment):
+            logger.info("Found a comment mentioning the doctor")
+            logger.info(f"Comment written by: {comment.author}")
+            logger.info(f"Comment: {comment.body}")
+            logger.info(f"Permalink: https://reddit.com{comment.permalink}")
+            replyWithEMHQuote(comment)
+            return True
 
-        author = comment.author
-        if (hasSubOptedOut(comment.subreddit.display_name)):
-            logging.info(f"{comment.subreddit.display_name} has opted out")
-            continue
-        elif (isModOptingSubOut(comment)):
-            logging.info(f"{comment.author.name} is opting {comment.subreddit.display_name} out")
-            continue
-        elif author != None and hasUserOptedOut(author.name):
-            logging.info(f"{comment.author.name} has opting out")
-            continue
-        elif isUserOptingOut(comment.body, author):
-            logging.info(f"{comment.author.name} is opting out")
-            insertIntoOptOutTable(author)
-            continue
+        if hasSubOptedOut(comment.subreddit.display_name):
+            return False
 
-        # comment.refresh()
-        # comment.replies.replace_more(limit=None, threshold=0)
-        # logging.info(f"Comment written by :", author)
-        # logging.info(f"replies", comment.replies.__len__())
-        # logging.info(f"comment", comment.body)
-        # logging.info(f"Id:", comment.id)
-        if (doctorRegex.search(comment.body.lower()) is not None):
-            logging.info(f"Found a comment mentioning the doctor")
-            logging.info(f"---------------------------------\n")
-            logging.info(f"Post Title: {comment.submission.title}")
-            logging.info(f"Comment written by : {comment.author}")
-            logging.info(f"replies {comment.replies.__len__()}")
-            logging.info(f"comment {comment.body}")
-            logging.info(f"Id: {comment.id}")
-            logging.info(f"permalink: https://reddit.com{comment.permalink}")
-            if (doesEmhReplyExist(comment) == False):
-                logging.info(f"with no previous replies")
-                replyWithEMHQuote(comment)
-                return
-
-            if (comment.replies.__len__()):
-                #time.sleep(2)
-                startConversation(comment.replies)
+        if startConversation(comment.replies):
+            return True
+    return False

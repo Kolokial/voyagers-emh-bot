@@ -3,6 +3,7 @@
         "/usr/local/bin/python"
     ],
     "python.analysis.extraPaths": [
+        "./src",
         "./tests/mocks"
     ],
     "python.testing.pytestArgs": [

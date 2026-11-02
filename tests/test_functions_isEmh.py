@@ -1,19 +1,15 @@
-import pytest
-from src.EMHModule.functions import isEmh
+from EMHModule.functions import isEmh
 from tests.mocks.Redditor import Redditor
 
 
-def test_isEmh():
-    # Test when redditor is None
-    result = isEmh(None)
-    assert result == False, "Expected False when redditor is None"
+def test_isEmh_none():
+    assert isEmh(None) is False
 
-    # Test when redditor's name matches the predefined username
-    redditor = Redditor(name="VoyagersEMH")
-    result = isEmh(redditor)
-    assert result == True, "Expected True when redditor's name matches the username"
 
-    # Test when redditor's name does not match the predefined username
-    redditor = Redditor(name="other_user")
-    result = isEmh(redditor)
-    assert result == False, "Expected False when redditor's name does not match the username"
+def test_isEmh_matches_case_insensitively():
+    assert isEmh(Redditor("VoyagersEMH")) is True
+    assert isEmh(Redditor("voyagersemh")) is True
+
+
+def test_isEmh_other_user():
+    assert isEmh(Redditor("other_user")) is False
